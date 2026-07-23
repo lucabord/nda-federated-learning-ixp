@@ -1,20 +1,20 @@
-# Network Data Analysis — Project #12: IXP Traffic Forecasting
+# IXP Traffic Forecasting
 
 **Course:** Network Measurement and Data Analysis Lab — Politecnico di Milano 2025/2026  
-**Team 12:** Luca Bordin · Mattia Menegale · Francesco Cavalieri
+**Authors:** Luca Bordin · Mattia Menegale · Francesco Cavalieri
 
 ---
 
 ## Overview
 
-This repository contains the work for **Project #10-11-12 — IXP Traffic Forecasting**, assigned as part of the NDA Lab course. The project uses the [IXP Traffic Dataset](https://github.com/nsg-ethz/ixp-traffic-dataset) — a two-year collection (Jan 2023–Dec 2024) of 5-minute traffic statistics from 472 IXPs worldwide, covering 87% of all publicly announced IXP port capacity.
+This repository contains the work for the **IXP Traffic Forecasting** project, developed as part of the NDA Lab course. The project uses the [IXP Traffic Dataset](https://github.com/nsg-ethz/ixp-traffic-dataset) — a two-year collection (Jan 2023–Dec 2024) of 5-minute traffic statistics from 472 IXPs worldwide, covering 87% of all publicly announced IXP port capacity.
 
 The project is split into two parts:
 
-| Part | Points | Task |
-|------|--------|------|
-| **Main task** | 12 pts | Compare time-series forecasting models (ARIMA, GRU, LSTM, TSFM) on **European** IXPs |
-| **Advanced task** | 3 pts | Simulate **Federated Learning** across Jakarta's IXPs |
+| Part | Task |
+|------|------|
+| **Main task** | Compare time-series forecasting models (ARIMA, GRU, LSTM, TSFM, Random Forest) on **European** IXPs |
+| **Advanced task** | Simulate **Federated Learning** across Jakarta's IXPs |
 
 ---
 
@@ -31,6 +31,7 @@ Given the past **N** 5-minute intervals of inbound traffic at a European IXP, pr
 | Model | Type | Notes |
 |-------|------|-------|
 | **ARIMA** | Statistical | Autoregressive baseline; no learned representations |
+| **Random Forest** | Ensemble ML | Tree-based regressor on sliding-window features |
 | **GRU** | Deep Learning | Gated Recurrent Unit — fewer parameters than LSTM |
 | **LSTM** | Deep Learning | Long Short-Term Memory — standard RNN for sequences |
 | **TSFM** | Foundation Model | Zero-shot / fine-tuned (e.g., TimesFM, Chronos) |
@@ -134,7 +135,7 @@ PROJECT/
 ## Tech Stack
 
 - **Deep Learning:** PyTorch (GRU, LSTM, FedAvg, FedProx)
-- **Classical ML / Stats:** scikit-learn, statsmodels (ARIMA)
+- **Classical ML / Stats:** scikit-learn (Random Forest), statsmodels (ARIMA)
 - **Foundation Models:** TimesFM / Chronos (zero-shot inference)
 - **Data:** pandas, numpy, pyarrow (Parquet)
 - **Visualization:** matplotlib, seaborn
