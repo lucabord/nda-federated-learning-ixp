@@ -84,16 +84,6 @@ Jakarta IXP profiles (13 usable after quality filtering, target was 15)
 - **Federated (FedAvg)** — one global GRU trained via FL, weights aggregated each round
 - **Centralized** — GRU trained on pooled (standardized) data from all training clients; practical upper bound if data sharing were allowed
 
-### Results
-
-| Model | Mean NMAE% ↓ | Mean R² ↑ | Skill vs. Persistence ↑ |
-|-------|-------------|-----------|------------------------|
-| **Local** | **11.3%** | **0.02** | **-6.2** |
-| Centralized | 13.4% | -0.99 | -10.4 |
-| Federated | 13.6% | -6.0 | -16.9 |
-
-**Key finding:** with 13 highly heterogeneous IXPs spanning four orders of magnitude in traffic volume (10⁻⁵–10³ Gbit/s), the local model outperforms both federated and centralized approaches. The IXP heterogeneity is the main bottleneck — averaging very different traffic profiles into a single shared model hurts more than it helps. FL trains cleanly (NMAE% drops from 37% to 13.5% over 15 rounds) but does not break even with the local baseline on this dataset.
-
 ### Notebooks
 
 | Notebook | Description |
