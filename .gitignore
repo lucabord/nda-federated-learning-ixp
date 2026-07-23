@@ -1,0 +1,13 @@
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+*.pt
+*.pth
+*.csv
+*.parquet
+*.json
+Figures/
+Features/
+Results/
