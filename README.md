@@ -1,159 +1,152 @@
-# Network Data Analysis (NDA) — Polimi 2025/2026
+# Network Data Analysis — Project #12: IXP Traffic Forecasting
 
-**Course:** Network Measurement and Data Analysis Lab  
-**Team (Project):** Luca Bordin · Mattia Menegale · Francesco Cavalieri  
-**Author (Homeworks):** Luca Bordin (272482)
+**Course:** Network Measurement and Data Analysis Lab — Politecnico di Milano 2025/2026  
+**Team 12:** Luca Bordin · Mattia Menegale · Francesco Cavalieri
 
 ---
 
 ## Overview
 
-This repository contains the work produced for the **NDA Lab** course at Politecnico di Milano. The course covers the full data analysis pipeline applied to network traffic: from raw packet captures and traffic profiles to machine learning classifiers and federated deep learning.
+This repository contains the work for **Project #10-11-12 — IXP Traffic Forecasting**, assigned as part of the NDA Lab course. The project uses the [IXP Traffic Dataset](https://github.com/nsg-ethz/ixp-traffic-dataset) — a two-year collection (Jan 2023–Dec 2024) of 5-minute traffic statistics from 472 IXPs worldwide, covering 87% of all publicly announced IXP port capacity.
 
-The repo is organized into two sections:
+The project is split into two parts:
 
-| Folder | Content |
-|--------|---------|
-| [`PROJECT/`](#project--federated-learning-on-jakarta-ixps) | Group project — Federated Learning for IXP traffic forecasting |
-| [`HOMEWORK/`](#homeworks) | Individual homeworks — traffic classification & time-series analysis |
+| Part | Points | Task |
+|------|--------|------|
+| **Main task** | 12 pts | Compare time-series forecasting models (ARIMA, GRU, LSTM, TSFM) on **European** IXPs |
+| **Advanced task** | 3 pts | Simulate **Federated Learning** across Jakarta's IXPs |
 
 ---
 
-## PROJECT — Federated Learning on Jakarta IXPs
-
-> **Can a shared GRU model forecasting internet traffic compete with a locally trained one — without any IXP sharing its raw data?**
+## Main Task — Forecasting Model Comparison (Europe)
 
 ### Problem
 
-Internet Exchange Points (IXPs) carry massive volumes of inter-network traffic. Accurate short-term forecasting helps operators plan capacity and detect anomalies. The challenge: IXPs are independent organizations and **cannot share raw traffic data** for privacy and competitive reasons.
+> Can we accurately predict future IXP traffic volumes using historical time-series data?
 
-Federated Learning (FL) offers a potential solution — train a shared model by exchanging only model weights, never raw data.
+Given the past **N** 5-minute intervals of inbound traffic at a European IXP, predict the next **K** intervals. N and K are treated as sensitivity analysis parameters.
+
+### Models Compared
+
+| Model | Type | Notes |
+|-------|------|-------|
+| **ARIMA** | Statistical | Autoregressive baseline; no learned representations |
+| **GRU** | Deep Learning | Gated Recurrent Unit — fewer parameters than LSTM |
+| **LSTM** | Deep Learning | Long Short-Term Memory — standard RNN for sequences |
+| **TSFM** | Foundation Model | Zero-shot / fine-tuned (e.g., TimesFM, Chronos) |
 
 ### Dataset
 
-We use the **IXP Traffic Dataset** ([nsg-ethz/ixp-traffic-dataset](https://github.com/nsg-ethz/ixp-traffic-dataset)), a public dataset of 5-minute traffic profiles from hundreds of IXPs worldwide. IXP metadata (location, name) is fetched from [PeeringDB](https://www.peeringdb.com/).
-
-We focus on **Jakarta (Indonesia)** — one of Asia's densest IXP clusters — filtering by city using PeeringDB's geographic metadata.
+- **Region:** Europe (372 IXPs, 34.9% of global total, 185 with collected data)
+- **Granularity:** 5-minute intervals resampled to hourly for stable training
+- **Features:** timestamp, IXP ID, inbound traffic volume (bps), port capacity
 
 ### Methodology
 
-```
-Jakarta IXP profiles (13 usable after quality filtering)
-         │
-         ├─ 10 training clients  ──► FedAvg (15 rounds, FedProx μ=0.01)
-         │                                │
-         └─ 3 held-out IXPs  ◄────────── Evaluation
-```
-
-**Architecture:** single-layer GRU (`hidden_size=64`), shared across all three baselines so any performance gap reflects *what data the model saw*, not the model capacity.
-
-**Forecasting task:** given the past **24 hours**, predict the next **6 hours** (hourly resolution).
-
-**Baselines:**
-- **Local** — one independent GRU per IXP, trained only on that IXP's own data
-- **Federated (FedAvg + FedProx)** — one global GRU trained via FL across 10 clients
-- **Centralized** — one GRU trained on the pooled (per-client standardized) data of all training clients; the practical upper bound assuming full data sharing
-
-**Metrics:** scale-free (NMAE%, R²,  skill vs. persistence) — necessary because the 13 IXPs span four orders of magnitude in traffic volume.
-
-### Key Results
-
-| Model | Mean NMAE% | Mean R² | Skill vs. Persistence |
-|-------|-----------|---------|----------------------|
-| **Local** | **11.3%** | **0.02** | **-6.2** |
-| Centralized | 13.4% | -0.99 | -10.4 |
-| Federated | 13.6% | -6.0 | -16.9 |
-
-**Main finding:** with only 13 highly heterogeneous IXPs (traffic spanning 10⁻⁵–10³ Gbit/s), a *local* model trained solely on each IXP's own data outperforms both federated and centralized approaches. Averaging very different IXPs into a single model hurts more than it helps. No model beats a naive persistence baseline on average — the IXP heterogeneity is the real bottleneck, not the training method.
+- Sliding window approach: each sample is a fixed-length lookback window → horizon prediction
+- Train/validation/test split (temporal, no shuffling)
+- Per-IXP standardization to handle the wide range of traffic scales across European IXPs
+- Evaluation with scale-free metrics (NMAE%, R²) to allow fair comparison across IXPs of different sizes
 
 ### Notebooks
 
 | Notebook | Description |
 |----------|-------------|
-| `Federated_Learning (1).ipynb` | Main FL pipeline: data loading, FL training, baselines, evaluation |
+| `Project_12_Finale (2).ipynb` | **Main project notebook** — full pipeline: data loading, all four models, sensitivity analysis, comparison |
+
+---
+
+## Advanced Task — Federated Learning on Jakarta's IXPs
+
+### Problem
+
+> Can a shared GRU model trained without any IXP sharing its raw data compete with a locally trained one?
+
+Jakarta (Indonesia) hosts one of Asia's densest IXP clusters. The goal is to simulate **Federated Learning** across 15 Jakarta IXPs, keeping 3 as held-out test clients that never participate in training.
+
+### Setup
+
+```
+Jakarta IXP profiles (13 usable after quality filtering, target was 15)
+         │
+         ├─ 10 training clients  ──► FedAvg + FedProx (15 rounds, μ=0.01)
+         │
+         └─ 3 held-out IXPs  ──► Evaluation only
+```
+
+**Architecture:** single-layer GRU (`hidden_size=64`), identical across all baselines so performance differences reflect *data exposure*, not model capacity.
+
+**Task:** given the past **24 hours**, predict the next **6 hours** (hourly resolution).
+
+**Baselines compared:**
+- **Local** — independent GRU per IXP, trained only on that IXP's own data
+- **Federated (FedAvg)** — one global GRU trained via FL, weights aggregated each round
+- **Centralized** — GRU trained on pooled (standardized) data from all training clients; practical upper bound if data sharing were allowed
+
+### Results
+
+| Model | Mean NMAE% ↓ | Mean R² ↑ | Skill vs. Persistence ↑ |
+|-------|-------------|-----------|------------------------|
+| **Local** | **11.3%** | **0.02** | **-6.2** |
+| Centralized | 13.4% | -0.99 | -10.4 |
+| Federated | 13.6% | -6.0 | -16.9 |
+
+**Key finding:** with 13 highly heterogeneous IXPs spanning four orders of magnitude in traffic volume (10⁻⁵–10³ Gbit/s), the local model outperforms both federated and centralized approaches. The IXP heterogeneity is the main bottleneck — averaging very different traffic profiles into a single shared model hurts more than it helps. FL trains cleanly (NMAE% drops from 37% to 13.5% over 15 rounds) but does not break even with the local baseline on this dataset.
+
+### Notebooks
+
+| Notebook | Description |
+|----------|-------------|
+| `Federated_Learning (1).ipynb` | Main FL pipeline — data loading, FedAvg training, baselines, evaluation |
 | `Federated_Learning_Preprocessed_LOOCV.ipynb` | Leave-One-Out Cross-Validation variant |
-| `Federated_Learning_Processed.ipynb` | Post-processing & extended analysis |
-| `Project_12_Finale (2).ipynb` | Final consolidated project notebook |
+| `Federated_Learning_Processed.ipynb` | Post-processing and extended analysis |
 
-### How to Run
+---
 
-All notebooks are designed for **Google Colab** with GPU acceleration.
+## How to Run
+
+All notebooks are designed for **Google Colab** (GPU recommended).
 
 1. Clone the IXP dataset onto Google Drive:
    ```bash
    git clone --depth 1 https://github.com/nsg-ethz/ixp-traffic-dataset.git
    ```
-2. Mount Drive and set `PROJECT_DIR` to your Drive path (first cell of each notebook).
-3. Run all cells. The dataset is auto-downloaded and cached if not present.
+2. Open a notebook in Colab, mount Drive, and set `PROJECT_DIR` to your Drive path (first cell).
+3. Run all cells — the dataset is auto-downloaded and cached if not already present.
 
 **Dependencies:** `torch`, `numpy`, `pandas`, `scikit-learn`, `matplotlib`, `seaborn`, `requests`, `pyarrow`
-
----
-
-## Homeworks
-
-### Homework 1 — Application Flow Classification
-
-**Task:** multi-class traffic classification — distinguish network flows generated by **Skype**, **Dropbox**, and **Google** using ML classifiers.
-
-**Approach:**
-- Feature engineering from raw packet captures (20 statistical features: packet length stats, inter-arrival times, byte rates)
-- Logistic Regression with 5-fold cross-validation and StandardScaler
-- XGBoost with grid search over `n_estimators`, `max_depth`, `subsample`
-- PCA 2D visualization for interpretability
-
-**Results:** XGBoost significantly outperforms Logistic Regression (as expected for non-linear, overlapping class boundaries). The PCA plot confirms no linear separation exists between the three classes, explaining the ~76% ceiling for the linear model.
-
-### Homework 2 — Network Time Series Analysis
-
-`H2_272482_Luca_Bordin.ipynb`
-
-Time-series analysis on network traffic data — trend decomposition, stationarity testing, and forecasting.
-
-### Homework 3 — Advanced Network Analysis
-
-`H3_272482_Luca_Bordin.ipynb`
-
-Extended analysis building on H2, covering additional modeling techniques.
 
 ---
 
 ## Repository Structure
 
 ```
-NDA/
-├── PROJECT/
-│   ├── Federated_Learning (1).ipynb           # Main FL experiment
-│   ├── Federated_Learning_Preprocessed_LOOCV.ipynb
-│   ├── Federated_Learning_Processed.ipynb
-│   ├── Project_12_Finale (2).ipynb            # Final project notebook
-│   └── Presentazione NDA.pptx                 # Slide deck
-└── HOMEWORK/
-    ├── First_Homework_Luca_Bordin (1).ipynb   # Traffic classification
-    ├── H2_272482_Luca_Bordin (1).ipynb        # Time-series analysis
-    └── H3_272482_Luca_Bordin.ipynb            # Advanced analysis
+PROJECT/
+├── Project_12_Finale (2).ipynb               # Main task — model comparison (Europe)
+├── Federated_Learning (1).ipynb              # Advanced task — FL main pipeline
+├── Federated_Learning_Preprocessed_LOOCV.ipynb
+├── Federated_Learning_Processed.ipynb
+└── Presentazione NDA.pptx                    # Slide deck
 ```
 
 ---
 
 ## Tech Stack
 
-- **Deep Learning:** PyTorch (GRU, FedAvg, FedProx)
-- **Classical ML:** scikit-learn (Logistic Regression, cross-validation), XGBoost
+- **Deep Learning:** PyTorch (GRU, LSTM, FedAvg, FedProx)
+- **Classical ML / Stats:** scikit-learn, statsmodels (ARIMA)
+- **Foundation Models:** TimesFM / Chronos (zero-shot inference)
 - **Data:** pandas, numpy, pyarrow (Parquet)
 - **Visualization:** matplotlib, seaborn
-- **External APIs:** PeeringDB REST API
+- **External APIs:** PeeringDB REST API (IXP metadata)
 - **Platform:** Google Colab (T4/A100 GPU)
 
 ---
 
 ## Authors
 
-**Project (Team 12):**
 - [Luca Bordin](mailto:luca1.bordin@mail.polimi.it)
 - Mattia Menegale
 - Francesco Cavalieri
-
-**Homeworks:** Luca Bordin (Student ID: 272482)
 
 **Institution:** Politecnico di Milano — MSc Computer Science & Engineering
